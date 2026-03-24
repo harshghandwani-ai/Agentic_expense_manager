@@ -9,10 +9,12 @@ Endpoints:
 import csv
 import io
 import json
+import os
+import shutil
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, File
 from openai import OpenAI
 
 from db import insert_expense, run_query
@@ -163,6 +165,26 @@ async def export_csv():
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database export failed: {exc}") from exc
+
+
+# ── POST /api/expenses/upload — upload an image ───────────────────────────────
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.post(
+    "/upload",
+    summary="Upload an image",
+    description="Upload an image (e.g. receipt). Currently just saves it to disk.",
+)
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return {"status": "success", "filename": file.filename, "message": "Image uploaded successfully"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {exc}") from exc
 
 
 # ── GET /api/expenses — list expenses with optional filters ───────────────────

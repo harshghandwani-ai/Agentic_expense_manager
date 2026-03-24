@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 
 from db import insert_expense, run_query
 from intent_router import route
-from llm_extractor import extract_expense
+from models import Expense
 from schemas import ChatRequest, ChatResponse, LogResponse
 
 router = APIRouter()
@@ -37,7 +37,7 @@ async def chat(body: ChatRequest) -> ChatResponse:
     # ── LOG ───────────────────────────────────────────────────────────────────
     if intent == "log":
         try:
-            expense = extract_expense(body.message)
+            expense = Expense(**payload)
             row_id = insert_expense(expense)
         except Exception as exc:
             raise HTTPException(status_code=422, detail=f"Expense logging failed: {exc}") from exc

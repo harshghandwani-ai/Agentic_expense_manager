@@ -187,6 +187,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Image Upload Logic
+    const attachBtn = document.getElementById('attach-btn');
+    const imageUpload = document.getElementById('image-upload');
+
+    if (attachBtn && imageUpload) {
+        attachBtn.addEventListener('click', () => {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const tempId = 'upload-' + Date.now();
+            appendMessage('user', `[Uploading attachment: ${file.name}...]`, tempId);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/expenses/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                removeElement(tempId);
+                
+                if (response.ok) {
+                    appendMessage('user', `📎 Attached image: ${file.name}`);
+                    appendMessage('ai', `I've received your image (${file.name}). I've saved it securely! (OCR processing will be added later).`);
+                } else {
+                    appendMessage('system', `Upload failed: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                removeElement(tempId);
+                appendMessage('system', 'Connection error during upload.');
+                console.error('Error uploading:', error);
+            }
+            
+            imageUpload.value = '';
+        });
+    }
+
     // New Chat
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
@@ -247,9 +292,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function appendMessage(sender, text) {
+    function appendMessage(sender, text, id = null) {
         const item = messageTemplate.content.cloneNode(true);
         const messageDiv = item.querySelector('.message');
+        if (id) messageDiv.id = id;
         const avatarDiv = item.querySelector('.avatar');
         const contentDiv = item.querySelector('.message-text');
 
