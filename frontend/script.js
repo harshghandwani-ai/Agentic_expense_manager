@@ -88,8 +88,104 @@ document.addEventListener('DOMContentLoaded', () => {
                     fabBtn.style.display = 'flex';
                 }
             }
+            
+            if (targetPage === 'page-stats') {
+                loadStats();
+            } else if (targetPage === 'page-history') {
+                loadHistory();
+            }
         });
     });
+
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/expenses/stats');
+            if (!response.ok) throw new Error('Failed to fetch stats');
+            const data = await response.json();
+
+            document.getElementById('stats-total-balance').textContent = `₹${data.total_expenses.toFixed(2)}`;
+            document.getElementById('stats-expenses-val').textContent = `₹${data.total_expenses.toFixed(2)}`;
+            document.getElementById('stats-income-val').textContent = `₹0.00`;
+
+            const categoriesList = document.getElementById('stats-categories-list');
+            categoriesList.innerHTML = '';
+            
+            if (data.top_categories.length === 0) {
+                categoriesList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No expenses yet.</div>';
+                return;
+            }
+
+            const colors = ['color-1', 'color-2', 'color-3', 'color-4'];
+
+            data.top_categories.forEach((cat, index) => {
+                const colorClass = colors[index % colors.length];
+                const percentage = data.total_expenses > 0 ? Math.min(100, Math.round((cat.amount / data.total_expenses) * 100)) : 0;
+                
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <div class="cat-header">
+                        <span class="cat-name"><span class="dot ${colorClass}"></span> ${cat.name || 'Unknown'}</span>
+                        <span class="cat-amount">₹${cat.amount.toFixed(2)}</span>
+                    </div>
+                    <div class="progress-bar-bg"><div class="progress-bar ${colorClass}" style="width: ${percentage}%"></div></div>
+                `;
+                categoriesList.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            document.getElementById('stats-categories-list').innerHTML = '<div style="text-align: center; color: var(--text-warning); padding: 20px;">Error loading stats</div>';
+        }
+    }
+
+    async function loadHistory() {
+        try {
+            const response = await fetch('/api/expenses?limit=50');
+            if (!response.ok) throw new Error('Failed to fetch history');
+            const data = await response.json();
+
+            const transactionList = document.getElementById('history-transaction-list');
+            transactionList.innerHTML = '';
+
+            if (data.length === 0) {
+                transactionList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No transactions yet.</div>';
+                return;
+            }
+
+            data.forEach(txn => {
+                const item = document.createElement('div');
+                item.className = 'txn-card';
+                
+                const categoryInitial = (txn.category && txn.category.length > 0) ? txn.category[0].toUpperCase() : 'E';
+                
+                item.innerHTML = `
+                    <div class="txn-icon-wrapper" style="color: #4a5ee7; background-color: rgba(74, 94, 231, 0.08);">
+                        ${categoryInitial}
+                    </div>
+                    <div class="txn-details">
+                        <div class="txn-title">${txn.description || 'Expense'}</div>
+                        <div class="txn-subtitle">${txn.category || 'General'} &bull; ${txn.date}</div>
+                    </div>
+                    <div class="txn-actions-amount">
+                        <div class="txn-amount negative">-₹${txn.amount.toFixed(2)}</div>
+                    </div>
+                `;
+                transactionList.appendChild(item);
+            });
+
+        } catch (error) {
+            console.error('Error loading history:', error);
+            document.getElementById('history-transaction-list').innerHTML = '<div style="text-align: center; color: var(--text-warning); padding: 20px;">Error loading history</div>';
+        }
+    }
+
+    // Export CSV
+    const exportCsvBtn = document.getElementById('btn-export-csv');
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+            window.location.href = '/api/expenses/export';
+        });
+    }
 
     // New Chat
     if (newChatBtn) {

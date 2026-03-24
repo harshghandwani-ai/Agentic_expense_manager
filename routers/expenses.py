@@ -6,11 +6,13 @@ Endpoints:
   POST /api/expenses/query    — query past expenses in natural language
   GET  /api/expenses          — list expenses with optional filters
 """
+import csv
+import io
 import json
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from openai import OpenAI
 
 from db import insert_expense, run_query
@@ -104,6 +106,63 @@ async def query_expenses(body: QueryRequest) -> QueryResponse:
         answer = f"Query returned {len(rows)} row(s). (Summarisation failed: {exc})"
 
     return QueryResponse(answer=answer, sql=sql, rows=rows)
+
+
+# ── GET /api/expenses/stats — get expense statistics ────────────────────────
+
+@router.get(
+    "/stats",
+    summary="Get expense statistics",
+    description="Return total expenses and top categories.",
+)
+async def get_stats() -> dict:
+    try:
+        # Total expenses
+        total_rows = run_query("SELECT SUM(amount) as total FROM expenses")
+        total = total_rows[0]["total"] if total_rows and total_rows[0]["total"] else 0.0
+
+        # Top categories (top 4)
+        cat_rows = run_query("""
+            SELECT category, SUM(amount) as total 
+            FROM expenses 
+            GROUP BY LOWER(category) 
+            ORDER BY total DESC 
+            LIMIT 4
+        """)
+        
+        categories = [{"name": row["category"], "amount": row["total"]} for row in cat_rows]
+        
+        return {
+            "total_expenses": total,
+            "top_categories": categories
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {exc}") from exc
+
+
+# ── GET /api/expenses/export — export expenses to CSV ─────────────────────────
+
+@router.get(
+    "/export",
+    summary="Export expenses to CSV",
+    description="Download all expenses as a CSV file.",
+)
+async def export_csv():
+    try:
+        rows = run_query("SELECT * FROM expenses ORDER BY date DESC, id DESC")
+        
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=["id", "amount", "category", "date", "payment_mode", "description", "created_at"])
+        writer.writeheader()
+        writer.writerows(rows)
+        
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="expenses.csv"'}
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database export failed: {exc}") from exc
 
 
 # ── GET /api/expenses — list expenses with optional filters ───────────────────

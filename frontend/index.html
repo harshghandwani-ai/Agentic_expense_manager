@@ -70,20 +70,20 @@
                 <div class="stats-scroll-content">
                     <div class="balance-card">
                         <div class="balance-title">Current Balance</div>
-                        <div class="balance-amount">$2,176.51</div>
+                        <div class="balance-amount" id="stats-total-balance">₹0.00</div>
                         <div class="balance-stats">
                             <div class="stat-box income">
                                 <div class="stat-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
                                 <div class="stat-details">
                                     <span>INCOME</span>
-                                    <span class="stat-val">$3,500</span>
+                                    <span class="stat-val" id="stats-income-val">₹0.00</span>
                                 </div>
                             </div>
                             <div class="stat-box expenses">
                                 <div class="stat-icon"><i class="fa-solid fa-arrow-trend-down"></i></div>
                                 <div class="stat-details">
                                     <span>EXPENSES</span>
-                                    <span class="stat-val">$1,323.49</span>
+                                    <span class="stat-val" id="stats-expenses-val">₹0.00</span>
                                 </div>
                             </div>
                         </div>
@@ -94,35 +94,8 @@
                             <h3>Top Categories</h3>
                             <a href="#" class="details-link">Details <i class="fa-solid fa-chevron-right"></i></a>
                         </div>
-                        <div class="categories-card">
-                            <div class="category-item">
-                                <div class="cat-header">
-                                    <span class="cat-name"><span class="dot color-1"></span> Rent</span>
-                                    <span class="cat-amount">$1200.00</span>
-                                </div>
-                                <div class="progress-bar-bg"><div class="progress-bar color-1" style="width: 80%"></div></div>
-                            </div>
-                            <div class="category-item">
-                                <div class="cat-header">
-                                    <span class="cat-name"><span class="dot color-2"></span> Transport</span>
-                                    <span class="cat-amount">$65.00</span>
-                                </div>
-                                <div class="progress-bar-bg"><div class="progress-bar color-2" style="width: 15%"></div></div>
-                            </div>
-                            <div class="category-item">
-                                <div class="cat-header">
-                                    <span class="cat-name"><span class="dot color-3"></span> Food</span>
-                                    <span class="cat-amount">$45.50</span>
-                                </div>
-                                <div class="progress-bar-bg"><div class="progress-bar color-3" style="width: 8%"></div></div>
-                            </div>
-                            <div class="category-item">
-                                <div class="cat-header">
-                                    <span class="cat-name"><span class="dot color-4"></span> Entertainment</span>
-                                    <span class="cat-amount">$12.99</span>
-                                </div>
-                                <div class="progress-bar-bg"><div class="progress-bar color-4" style="width: 3%"></div></div>
-                            </div>
+                        <div class="categories-card" id="stats-categories-list">
+                            <div style="text-align: center; color: var(--text-secondary); padding: 20px;">Loading categories...</div>
                         </div>
                     </div>
 
@@ -131,7 +104,7 @@
                             <div class="action-icon text-warning"><i class="fa-solid fa-filter"></i></div>
                             <span>Set Budget</span>
                         </div>
-                        <div class="action-card">
+                        <div class="action-card" id="btn-export-csv" style="cursor: pointer;">
                             <div class="action-icon text-primary"><i class="fa-regular fa-calendar"></i></div>
                             <span>Export CSV</span>
                         </div>
@@ -151,65 +124,8 @@
                         <button class="icon-btn" style="color: var(--text-secondary); width: auto; height: auto;"><i class="fa-solid fa-filter"></i></button>
                     </div>
                     
-                    <div class="transaction-list">
-                        <!-- Transaction Items -->
-                        <div class="txn-card">
-                            <div class="txn-icon-wrapper" style="color: #4a5ee7; background-color: rgba(74, 94, 231, 0.08);">
-                                F
-                            </div>
-                            <div class="txn-details">
-                                <div class="txn-title">Lunch at Chipotle</div>
-                                <div class="txn-subtitle">Food &bull; 2023-10-25</div>
-                            </div>
-                            <div class="txn-amount negative">-$45.50</div>
-                        </div>
-                        
-                        <div class="txn-card">
-                            <div class="txn-icon-wrapper" style="color: #6c757d; background-color: rgba(108, 117, 125, 0.08);">
-                                R
-                            </div>
-                            <div class="txn-details">
-                                <div class="txn-title">Monthly Rent</div>
-                                <div class="txn-subtitle">Rent &bull; 2023-10-24</div>
-                            </div>
-                            <div class="txn-amount negative">-$1200.00</div>
-                        </div>
-                        
-                        <div class="txn-card">
-                            <div class="txn-icon-wrapper" style="color: #10a37f; background-color: rgba(16, 163, 127, 0.08);">
-                                S
-                            </div>
-                            <div class="txn-details">
-                                <div class="txn-title">Tech Corp Paycheck</div>
-                                <div class="txn-subtitle">Salary &bull; 2023-10-23</div>
-                            </div>
-                            <div class="txn-amount positive">+$3500.00</div>
-                        </div>
-                        
-                        <div class="txn-card">
-                            <div class="txn-icon-wrapper" style="color: #6c757d; background-color: rgba(108, 117, 125, 0.08);">
-                                T
-                            </div>
-                            <div class="txn-details">
-                                <div class="txn-title">Uber to Airport</div>
-                                <div class="txn-subtitle">Transport &bull; 2023-10-22</div>
-                            </div>
-                            <div class="txn-amount negative">-$65.00</div>
-                        </div>
-                        
-                        <div class="txn-card">
-                            <div class="txn-icon-wrapper" style="color: #6c757d; background-color: rgba(108, 117, 125, 0.08);">
-                                E
-                            </div>
-                            <div class="txn-details">
-                                <div class="txn-title">Netflix Subscription</div>
-                                <div class="txn-subtitle">Entertainment &bull; 2023-10-20</div>
-                            </div>
-                            <div class="txn-actions-amount">
-                                <div class="txn-amount negative">-$12.99</div>
-                                <button class="delete-btn" title="Delete"><i class="fa-regular fa-trash-can"></i></button>
-                            </div>
-                        </div>
+                    <div class="transaction-list" id="history-transaction-list">
+                        <div style="text-align: center; color: var(--text-secondary); padding: 20px;">Loading history...</div>
                     </div>
                 </div>
             </div>
