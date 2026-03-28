@@ -46,6 +46,7 @@ def main():
                 f"{BASE_URL}/api/chat",
                 json={"message": user_input}
             )
+            
             response.raise_for_status()
             data = response.json()
             
