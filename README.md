@@ -2,7 +2,7 @@
 title: PennyWise AI
 emoji: 💰
 colorFrom: green
-colorTo: teal
+colorTo: indigo
 sdk: docker
 pinned: false
 license: mit
