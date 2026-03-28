@@ -21,6 +21,9 @@ WORKDIR /app
 
 # ── Python dependencies (cached layer unless requirements.txt changes) ────────
 COPY requirements.txt .
+# GCC 14 (Debian Trixie) promotes -Wincompatible-pointer-types to an error,
+# which breaks PyMuPDF < 1.21.0 (required by paddleocr 2.6.1.3).
+ENV CFLAGS="-Wno-error=incompatible-pointer-types"
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Application code ──────────────────────────────────────────────────────────
