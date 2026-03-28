@@ -5,6 +5,7 @@ FROM python:3.11-slim
 
 # ── System dependencies for PaddleOCR / OpenCV ───────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
         libgl1 \
         libglib2.0-0 \
         libsm6 \
