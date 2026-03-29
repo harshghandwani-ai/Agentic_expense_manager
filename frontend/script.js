@@ -40,14 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Navigation ─────────────────────────────────────────────────────────
     const navItems = document.querySelectorAll('.nav-item, .bottom-nav-item');
     const pageViews = document.querySelectorAll('.page-view');
-    const fabBtn = document.querySelector('.fab-btn');
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const targetPage = item.getAttribute('data-page');
             navItems.forEach(nav => nav.classList.toggle('active', nav.getAttribute('data-page') === targetPage));
             pageViews.forEach(page => page.classList.toggle('active', page.id === targetPage));
-            if (fabBtn) fabBtn.style.display = targetPage === 'page-chat' ? 'none' : 'flex';
             if (targetPage === 'page-stats') loadStats();
             else if (targetPage === 'page-history') loadHistory();
         });
