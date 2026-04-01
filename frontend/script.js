@@ -3,9 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Auth Layer ────────────────────────────────────────────────────────────
     // ══════════════════════════════════════════════════════════════════════════
 
-    const authView     = document.getElementById('auth-view');
+    const authView = document.getElementById('auth-view');
     const appContainer = document.querySelector('.app-container');
-    const authError    = document.getElementById('auth-error');
+    const authError = document.getElementById('auth-error');
     const tabIndicator = document.querySelector('.auth-tab-indicator');
 
     // ── authFetch — injects Bearer token, auto-logouts on 401 ────────────────
@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         authView.style.display = 'none';
         appContainer.style.display = 'flex';
         const avatar = document.getElementById('sidebar-avatar');
-        const uname  = document.getElementById('sidebar-username');
+        const uname = document.getElementById('sidebar-username');
         if (avatar) avatar.textContent = (user.username || 'U')[0].toUpperCase();
-        if (uname)  uname.textContent  = user.username || user.email;
+        if (uname) uname.textContent = user.username || user.email;
     }
 
     function showAuth() {
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Session detection on load ─────────────────────────────────────────────
     const savedToken = localStorage.getItem('auth_token');
-    const savedUser  = (() => {
+    const savedUser = (() => {
         try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); } catch { return null; }
     })();
 
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Tab switching ─────────────────────────────────────────────────────────
-    const formLogin    = document.getElementById('form-login');
+    const formLogin = document.getElementById('form-login');
     const formRegister = document.getElementById('form-register');
 
     document.querySelectorAll('.auth-tab').forEach(tab => {
@@ -71,11 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.classList.add('active');
             clearAuthError();
             if (target === 'login') {
-                formLogin.style.display    = 'flex';
+                formLogin.style.display = 'flex';
                 formRegister.style.display = 'none';
                 tabIndicator.classList.remove('on-register');
             } else {
-                formLogin.style.display    = 'none';
+                formLogin.style.display = 'none';
                 formRegister.style.display = 'flex';
                 tabIndicator.classList.add('on-register');
             }
@@ -97,15 +97,15 @@ document.addEventListener('DOMContentLoaded', () => {
     formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearAuthError();
-        const btn      = document.getElementById('login-submit-btn');
-        const email    = document.getElementById('login-email').value.trim();
+        const btn = document.getElementById('login-submit-btn');
+        const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing In\u2026';
 
         try {
-            const res  = await fetch('/api/auth/login', {
+            const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
@@ -130,20 +130,20 @@ document.addEventListener('DOMContentLoaded', () => {
     formRegister.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearAuthError();
-        const btn      = document.getElementById('register-submit-btn');
+        const btn = document.getElementById('register-submit-btn');
         const username = document.getElementById('reg-username').value.trim();
-        const email    = document.getElementById('reg-email').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
-        const confirm  = document.getElementById('reg-confirm').value;
+        const confirm = document.getElementById('reg-confirm').value;
 
         if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
-        if (password.length < 6)  { showAuthError('Password must be at least 6 characters.'); return; }
+        if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating Account\u2026';
 
         try {
-            const res  = await fetch('/api/auth/register', {
+            const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password }),
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         // Reset chat to welcome state
-        const msgs    = document.getElementById('chat-messages');
+        const msgs = document.getElementById('chat-messages');
         const welcome = document.querySelector('.welcome-container');
         if (msgs && welcome) {
             msgs.innerHTML = '';
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const card = messageDiv.querySelector('.confirm-card');
                     card.innerHTML = `
                         <div style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--accent-primary);margin-bottom:10px;">
-                            <i class="fa-solid fa-circle-check"></i> Saved! Expense #${data.id} logged.
+                            <i class="fa-solid fa-circle-check"></i> Saved! Expense for ${data.description} logged.
                         </div>
                         <div style="display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:0.88rem;line-height:1.7;">
                             <span style="color:var(--text-secondary);font-weight:600;text-transform:uppercase;font-size:0.78rem;">Amount</span>
@@ -636,4 +636,119 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Chat error:', error);
         }
     });
+
+    // ── Voice STT ───────────────────────────────────────────────────────────
+    const micBtn = document.getElementById('mic-btn');
+    let isRecordingVoice = false;
+    let voiceAudioCtx;
+    let voiceProcessor;
+    let voiceMicSource;
+    let voiceSocket;
+
+    if (micBtn) {
+        micBtn.addEventListener('click', () => {
+            if (isRecordingVoice) {
+                stopVoiceRecording();
+            } else {
+                startVoiceRecording();
+            }
+        });
+    }
+
+    async function startVoiceRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            isRecordingVoice = true;
+            micBtn.classList.add('recording');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            voiceSocket = new WebSocket(`${protocol}//${window.location.host}/api/voice/transcribe`);
+            voiceSocket.binaryType = 'arraybuffer';
+            
+            voiceSocket.onopen = () => setupVoiceProcessing(stream);
+
+            voiceSocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.channel === 'transcript') {
+                    handleVoiceTranscript(data.text);
+                } else if (data.channel === 'utterance_end') {
+                    stopVoiceRecording(true); 
+                } else if (data.channel === 'error') {
+                    console.error('STT Error:', data.message);
+                    stopVoiceRecording();
+                }
+            };
+
+            voiceSocket.onclose = () => { if (isRecordingVoice) stopVoiceRecording(); };
+            voiceSocket.onerror = () => stopVoiceRecording();
+
+        } catch (err) {
+            console.error('Mic access error:', err);
+            appendMessage('error', 'Could not access microphone.');
+        }
+    }
+
+    function setupVoiceProcessing(stream) {
+        voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const actualSampleRate = voiceAudioCtx.sampleRate;
+        voiceMicSource = voiceAudioCtx.createMediaStreamSource(stream);
+        voiceProcessor = voiceAudioCtx.createScriptProcessor(4096, 1, 1);
+
+        voiceProcessor.onaudioprocess = (e) => {
+            if (!isRecordingVoice || !voiceSocket || voiceSocket.readyState !== WebSocket.OPEN) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            const downsampled = downsampleAudio(inputData, actualSampleRate, 16000);
+            const pcmBuffer = convertFloatTo16BitPCM(downsampled);
+            voiceSocket.send(pcmBuffer);
+        };
+
+        voiceMicSource.connect(voiceProcessor);
+        voiceProcessor.connect(voiceAudioCtx.destination);
+    }
+
+    function downsampleAudio(buffer, fromRate, toRate) {
+        if (fromRate === toRate) return buffer;
+        const ratio = fromRate / toRate;
+        const result = new Float32Array(Math.round(buffer.length / ratio));
+        let offsetResult = 0, offsetBuffer = 0;
+        while (offsetResult < result.length) {
+            const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+            let accum = 0, count = 0;
+            for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+                accum += buffer[i]; count++;
+            }
+            result[offsetResult] = accum / count;
+            offsetResult++; offsetBuffer = nextOffsetBuffer;
+        }
+        return result;
+    }
+
+    function convertFloatTo16BitPCM(buffer) {
+        const pcm = new Int16Array(buffer.length);
+        for (let i = 0; i < buffer.length; i++) {
+            const s = Math.max(-1, Math.min(1, buffer[i]));
+            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        return pcm.buffer;
+    }
+
+    function handleVoiceTranscript(text) {
+        if (!text) return;
+        messageInput.value = text;
+        messageInput.style.height = 'auto';
+        messageInput.style.height = (messageInput.scrollHeight) + 'px';
+        sendBtn.toggleAttribute('disabled', messageInput.value.trim().length === 0);
+    }
+
+    function stopVoiceRecording(autoSubmit = false) {
+        isRecordingVoice = false;
+        micBtn.classList.remove('recording');
+        if (voiceProcessor) { voiceProcessor.disconnect(); voiceProcessor = null; }
+        if (voiceMicSource) { voiceMicSource.disconnect(); voiceMicSource = null; }
+        if (voiceAudioCtx) { voiceAudioCtx.close(); voiceAudioCtx = null; }
+        if (voiceSocket) { voiceSocket.close(); voiceSocket = null; }
+        if (autoSubmit && messageInput.value.trim().length > 0) {
+            chatForm.dispatchEvent(new Event('submit'));
+        }
+    }
 });

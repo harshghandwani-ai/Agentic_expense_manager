@@ -11,3 +11,6 @@ expenses.db
 uploads/
 _fix_js.py
 _write_expenses.py
+test.py
+voice_test.py
+

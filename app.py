@@ -14,6 +14,7 @@ from db import init_db
 from routers import expenses
 from routers import chat
 from routers import auth
+from routers import voice
 
 
 @asynccontextmanager
@@ -46,6 +47,7 @@ app.add_middleware(
 app.include_router(expenses.router, prefix="/api/expenses", tags=["Expenses"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(voice.router, prefix="/api/voice", tags=["Voice"])
 
 
 # ── Health & Frontend ─────────────────────────────────────────────────────────
