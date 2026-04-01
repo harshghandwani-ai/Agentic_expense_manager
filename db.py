@@ -74,6 +74,16 @@ def init_db() -> None:
                         created_at   TEXT        NOT NULL
                     )
                 """)
+                # chat_messages table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_messages (
+                        id           SERIAL PRIMARY KEY,
+                        user_id      INTEGER NOT NULL DEFAULT 0,
+                        role         TEXT    NOT NULL,
+                        content      TEXT    NOT NULL,
+                        created_at   TEXT    NOT NULL
+                    )
+                """)
                 # migration: add user_id if missing
                 cur.execute("""
                     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS user_id INTEGER NOT NULL DEFAULT 0
@@ -101,6 +111,15 @@ def init_db() -> None:
                     date         TEXT    NOT NULL,
                     payment_mode TEXT    NOT NULL,
                     description  TEXT    NOT NULL,
+                    created_at   TEXT    NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      INTEGER NOT NULL DEFAULT 0,
+                    role         TEXT    NOT NULL,
+                    content      TEXT    NOT NULL,
                     created_at   TEXT    NOT NULL
                 )
             """)
@@ -236,3 +255,58 @@ def run_query(sql: str, params: tuple = ()) -> list[dict]:
             cursor = conn.execute(sql, params)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+
+
+# ── Chat history helpers ──────────────────────────────────────────────────────
+
+def get_chat_history(user_id: int, limit: int = 8) -> list[dict]:
+    """Fetch the most recent chat messages for a user, returned in chronological order."""
+    # We fetch the most recent ones first, then reverse them so they are in order for the LLM.
+    sql = """
+        SELECT role, content 
+        FROM chat_messages 
+        WHERE user_id = ? 
+        ORDER BY id DESC 
+        LIMIT ?
+    """
+    rows = run_query(sql, (user_id, limit))
+    return list(reversed(rows))
+
+
+def insert_chat_message(user_id: int, role: str, content: str) -> None:
+    """Save a new message turn to the database."""
+    created_at = datetime.now(timezone.utc).isoformat()
+    if _USE_POSTGRES:
+        conn = _pg_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO chat_messages (user_id, role, content, created_at) VALUES (%s, %s, %s, %s)",
+                    (user_id, role, content, created_at)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        with _sqlite_conn() as conn:
+            conn.execute(
+                "INSERT INTO chat_messages (user_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                (user_id, role, content, created_at)
+            )
+            conn.commit()
+
+
+def clear_chat_history(user_id: int) -> None:
+    """Delete all chat history for a specific user."""
+    if _USE_POSTGRES:
+        conn = _pg_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM chat_messages WHERE user_id = %s", (user_id,))
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        with _sqlite_conn() as conn:
+            conn.execute("DELETE FROM chat_messages WHERE user_id = ?", (user_id,))
+            conn.commit()

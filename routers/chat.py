@@ -10,6 +10,7 @@ Accepts any natural-language message and routes it to the correct pipeline:
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth_utils import TokenData, get_current_user
+from db import get_chat_history, insert_chat_message
 from intent_router import route
 from query_engine import execute_read_expenses, summarize_results
 from schemas import ChatRequest, ChatResponse, ExpensePreview
@@ -31,8 +32,12 @@ async def chat(
     body: ChatRequest,
     current_user: TokenData = Depends(get_current_user),
 ) -> ChatResponse:
+    # 1. Fetch history (capped at 6 messages / 3 turns)
+    history = get_chat_history(current_user.user_id, limit=8)
+    
     try:
-        intent, payload = route(body.message)
+        # 2. Pass history to router
+        intent, payload = route(body.message, history=history)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Intent routing failed: {exc}") from exc
 
@@ -72,4 +77,8 @@ async def chat(
             ) from exc
 
     # ---- CHAT ---------------------------------------------------------------
+    # Save the conversation turn to the database
+    insert_chat_message(current_user.user_id, "user", body.message)
+    insert_chat_message(current_user.user_id, "assistant", payload)
+    
     return ChatResponse(intent=intent, answer=payload, expense=None)

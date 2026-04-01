@@ -82,7 +82,7 @@ is there a clear monetary amount being spent. If not, it is CHAT.
 """
 
 
-def route(user_input: str) -> tuple[str, Any]:
+def route(user_input: str, history: list[dict] = None) -> tuple[str, Any]:
     """
     Route user input to LOG, QUERY, or CHAT pipeline.
 
@@ -92,10 +92,14 @@ def route(user_input: str) -> tuple[str, Any]:
       ("chat",  answer_text)  -- AI answered a general/conversational question
     """
 
-    messages = [
-        {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_input},
-    ]
+    messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}]
+    
+    # Prepend history if available
+    if history:
+        messages.extend(history)
+        
+    # Append the current user message
+    messages.append({"role": "user", "content": user_input})
 
     # First LLM call — may or may not invoke the tool
     response = client.chat.completions.create(
