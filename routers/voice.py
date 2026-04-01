@@ -5,8 +5,8 @@ import os
 import asyncio
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from deepgram import DeepgramClient
-from deepgram.clients.live.v1 import LiveOptions, LiveTranscriptionEvents
+from deepgram import DeepgramClient, LiveOptions
+from deepgram.clients.live.v1 import LiveTranscriptionEvents
 from dotenv import load_dotenv
 
 load_dotenv()
