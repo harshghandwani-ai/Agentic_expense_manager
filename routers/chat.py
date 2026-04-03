@@ -10,7 +10,7 @@ Accepts any natural-language message and routes it to the correct pipeline:
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth_utils import TokenData, get_current_user
-from db import get_chat_history, insert_chat_message
+from db import get_chat_history, insert_chat_message, upsert_budget
 from intent_router import route
 from query_engine import execute_read_expenses, summarize_results
 from schemas import ChatRequest, ChatResponse, ExpensePreview
@@ -75,6 +75,29 @@ async def chat(
         except Exception as exc:
             raise HTTPException(
                 status_code=500, detail=f"Failed to query expenses: {exc}"
+            ) from exc
+
+    # ---- BUDGET -------------------------------------------------------------
+    if intent == "budget":
+        try:
+            amount = payload.get("amount")
+            category = payload.get("category", "total")
+            period = payload.get("period", "monthly")
+            
+            if not amount:
+                 raise HTTPException(status_code=400, detail="Budget amount is required.")
+            
+            upsert_budget(current_user.user_id, category, amount, period)
+            
+            # Save message turn
+            insert_chat_message(current_user.user_id, "user", body.message)
+            answer = f"Done! I've set your {period} budget for **{category}** to **\u20b9{amount:,.2f}**. I'll help you track it in the Stats tab."
+            insert_chat_message(current_user.user_id, "assistant", answer)
+            
+            return ChatResponse(intent="budget", answer=answer, expense=None)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to set budget: {exc}"
             ) from exc
 
     # ---- CHAT ---------------------------------------------------------------

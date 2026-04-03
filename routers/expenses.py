@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFi
 from openai import OpenAI
 
 from auth_utils import TokenData, get_current_user
-from db import insert_expense, run_query
+from db import insert_expense, run_query, get_budgets
 from llm_extractor import extract_expense
 from models import Expense
 from ocr import get_engine
@@ -142,10 +142,21 @@ async def get_stats(
         cat_rows = run_query(
             "SELECT LOWER(category) as category, SUM(amount) as total FROM expenses "
             "WHERE user_id = ? AND type = 'expense' "
-            "GROUP BY LOWER(category) ORDER BY total DESC LIMIT 4",
+            "GROUP BY LOWER(category) ORDER BY total DESC LIMIT 6",
             (current_user.user_id,),
         )
-        categories = [{"name": r["category"], "amount": r["total"]} for r in cat_rows]
+        
+        # Get Budgets
+        budgets = {b["category"].lower(): b["amount"] for b in get_budgets(current_user.user_id)}
+        
+        categories = []
+        for r in cat_rows:
+            cat_name = r["category"]
+            categories.append({
+                "name": cat_name, 
+                "amount": r["total"],
+                "budget": budgets.get(cat_name)
+            })
 
         return {
             "total_expenses": total_expenses, 

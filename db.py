@@ -85,6 +85,18 @@ def init_db() -> None:
                         created_at   TEXT    NOT NULL
                     )
                 """)
+                # budgets table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS budgets (
+                        id           SERIAL PRIMARY KEY,
+                        user_id      INTEGER NOT NULL,
+                        category     TEXT    NOT NULL,
+                        amount       REAL    NOT NULL,
+                        period       TEXT    NOT NULL DEFAULT 'monthly',
+                        created_at   TEXT    NOT NULL,
+                        UNIQUE(user_id, category, period)
+                    )
+                """)
                 # migration: add user_id if missing
                 cur.execute("""
                     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS user_id INTEGER NOT NULL DEFAULT 0
@@ -127,6 +139,17 @@ def init_db() -> None:
                     role         TEXT    NOT NULL,
                     content      TEXT    NOT NULL,
                     created_at   TEXT    NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS budgets (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      INTEGER NOT NULL,
+                    category     TEXT    NOT NULL,
+                    amount       REAL    NOT NULL,
+                    period       TEXT    NOT NULL DEFAULT 'monthly',
+                    created_at   TEXT    NOT NULL,
+                    UNIQUE(user_id, category, period)
                 )
             """)
             # migration: add user_id column if it doesn't exist yet
@@ -320,3 +343,46 @@ def clear_chat_history(user_id: int) -> None:
         with _sqlite_conn() as conn:
             conn.execute("DELETE FROM chat_messages WHERE user_id = ?", (user_id,))
             conn.commit()
+
+
+# ── Budget helpers ────────────────────────────────────────────────────────────
+
+def upsert_budget(user_id: int, category: str, amount: float, period: str = 'monthly') -> None:
+    """Create or update a budget for a user and category."""
+    created_at = datetime.now(timezone.utc).isoformat()
+    category = category.lower()
+
+    if _USE_POSTGRES:
+        conn = _pg_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO budgets (user_id, category, amount, period, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT(user_id, category, period) 
+                    DO UPDATE SET amount = EXCLUDED.amount, created_at = EXCLUDED.created_at
+                    """,
+                    (user_id, category, amount, period, created_at)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        with _sqlite_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO budgets (user_id, category, amount, period, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, category, period) 
+                DO UPDATE SET amount = excluded.amount, created_at = excluded.created_at
+                """,
+                (user_id, category, amount, period, created_at)
+            )
+            conn.commit()
+
+
+def get_budgets(user_id: int) -> list[dict]:
+    """Return all budgets for a specific user."""
+    sql = "SELECT category, amount, period FROM budgets WHERE user_id = ?"
+    return run_query(sql, (user_id,))

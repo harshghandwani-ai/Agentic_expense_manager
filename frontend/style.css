@@ -838,6 +838,30 @@ textarea::placeholder {
 .progress-bar {
     height: 100%;
     border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-bar.warning {
+    background-color: #f39c12 !important;
+}
+
+.progress-bar.danger {
+    background-color: #e74c3c !important;
+}
+
+.cat-budget-info {
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.budget-limit {
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 /* Category Colors */

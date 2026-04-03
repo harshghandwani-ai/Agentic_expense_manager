@@ -203,6 +203,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const CATEGORIES = ['food', 'shopping', 'transport', 'entertainment', 'health', 'utilities', 'salary', 'gift', 'investment', 'other'];
 
+    // ── Set Budget UI Handler ─────────────────────────────────────────────
+    const setBudgetBtn = document.querySelector('.action-card i.fa-filter')?.parentElement;
+    if (setBudgetBtn) {
+        setBudgetBtn.style.cursor = 'pointer';
+        setBudgetBtn.addEventListener('click', () => {
+            // Switch to chat page
+            const chatNavItem = document.querySelector('.nav-item[data-page="page-chat"], .bottom-nav-item[data-page="page-chat"]');
+            chatNavItem?.click();
+            // Pre-fill input
+            messageInput.value = "Set my monthly total budget to ";
+            messageInput.focus();
+            // Scroll to end of text
+            messageInput.selectionStart = messageInput.selectionEnd = messageInput.value.length;
+            // Update UI state
+            messageInput.dispatchEvent(new Event('input'));
+        });
+    }
+
     // ── Auto-resize textarea ───────────────────────────────────────────────
     messageInput.addEventListener('input', function () {
         this.style.height = 'auto';
@@ -279,7 +297,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const colors = ['color-1', 'color-2', 'color-3', 'color-4'];
             data.top_categories.forEach((cat, index) => {
                 const colorClass = colors[index % colors.length];
-                const percentage = data.total_expenses > 0 ? Math.min(100, Math.round((cat.amount / data.total_expenses) * 100)) : 0;
+                
+                // If there's a budget, percentage is based on budget. Otherwise, based on total expenses.
+                let percentage = 0;
+                let statusClass = '';
+                let budgetLabel = '';
+
+                if (cat.budget) {
+                    percentage = Math.min(100, Math.round((cat.amount / cat.budget) * 100));
+                    if (percentage >= 90) statusClass = 'danger';
+                    else if (percentage >= 70) statusClass = 'warning';
+                    budgetLabel = `<div class="cat-budget-info">
+                        <span>Budget: \u20b9${cat.budget.toFixed(2)}</span>
+                        <span>${percentage}% used</span>
+                    </div>`;
+                } else {
+                    percentage = data.total_expenses > 0 ? Math.min(100, Math.round((cat.amount / data.total_expenses) * 100)) : 0;
+                    budgetLabel = `<div class="cat-budget-info">
+                        <span>No budget set</span>
+                        <span>${percentage}% of total</span>
+                    </div>`;
+                }
+
                 const item = document.createElement('div');
                 item.className = 'category-item';
                 item.innerHTML = `
@@ -287,7 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="cat-name"><span class="dot ${colorClass}"></span> ${cat.name || 'Unknown'}</span>
                         <span class="cat-amount">\u20b9${cat.amount.toFixed(2)}</span>
                     </div>
-                    <div class="progress-bar-bg"><div class="progress-bar ${colorClass}" style="width:${percentage}%"></div></div>
+                    <div class="progress-bar-bg"><div class="progress-bar ${colorClass} ${statusClass}" style="width:${percentage}%"></div></div>
+                    ${budgetLabel}
                 `;
                 categoriesList.appendChild(item);
             });
