@@ -36,6 +36,7 @@ class LogResponse(BaseModel):
     date: str
     payment_mode: str
     description: str
+    type: str
     created_at: str
 
 
@@ -52,6 +53,7 @@ class ExpenseRecord(BaseModel):
     date: str
     payment_mode: str
     description: str
+    type: str
     created_at: str
 
 
@@ -59,28 +61,28 @@ class ExpenseRecord(BaseModel):
 
 class ExpensePreview(BaseModel):
     """
-    Extracted expense fields returned BEFORE the user confirms.
-    Has no id or created_at — nothing has been saved to the DB yet.
+    Extracted expense/income fields returned BEFORE the user confirms.
     """
     amount: float = Field(..., description="Monetary amount extracted by LLM.")
-    category: str = Field(..., description="One of: food, shopping, transport, entertainment, health, utilities, other.")
+    category: str = Field(..., description="Category of the transaction.")
     date: str = Field(..., description="Date in YYYY-MM-DD format.")
-    payment_mode: str = Field(..., description="e.g. cash, UPI, credit card.")
-    description: str = Field(..., description="Brief noun phrase of what was bought.")
-    ocr_text: Optional[str] = Field(None, description="Raw PaddleOCR output — only set on image uploads.")
-    source: Optional[str] = Field(None, description="'image' or 'text', used by the frontend to show context.")
+    payment_mode: str = Field(..., description="e.g. cash, UPI, bank transfer.")
+    description: str = Field(..., description="Brief description of the transaction.")
+    type: str = Field("expense", description="'expense' or 'income'")
+    ocr_text: Optional[str] = Field(None, description="Raw PaddleOCR output.")
+    source: Optional[str] = Field(None, description="'image' or 'text'")
 
 
 class ConfirmRequest(BaseModel):
     """
     Fields the user submits when they click 'Confirm & Save'.
-    Accepts the (possibly user-edited) expense fields.
     """
     amount: float = Field(..., gt=0, description="Must be a positive number.")
-    category: str = Field(..., description="One of: food, shopping, transport, entertainment, health, utilities, other.")
+    category: str = Field(..., description="Category of the transaction.")
     date: str = Field(..., description="Date in YYYY-MM-DD format.")
-    payment_mode: str = Field(..., description="e.g. cash, UPI, credit card.")
-    description: str = Field(..., description="Brief noun phrase of what was bought.")
+    payment_mode: str = Field(..., description="e.g. cash, UPI, bank transfer.")
+    description: str = Field(..., description="Brief description of the transaction.")
+    type: str = Field("expense", description="'expense' or 'income'")
 
 
 # ── Chat (unified intent) models ──────────────────────────────────────────────

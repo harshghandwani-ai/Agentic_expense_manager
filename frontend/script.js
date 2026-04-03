@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const welcomeContainer = document.querySelector('.welcome-container');
     const messageTemplate = document.getElementById('message-template');
 
-    const CATEGORIES = ['food', 'shopping', 'transport', 'entertainment', 'health', 'utilities', 'other'];
+    const CATEGORIES = ['food', 'shopping', 'transport', 'entertainment', 'health', 'utilities', 'salary', 'gift', 'investment', 'other'];
 
     // ── Auto-resize textarea ───────────────────────────────────────────────
     messageInput.addEventListener('input', function () {
@@ -252,14 +252,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Failed to fetch stats');
             const data = await response.json();
 
-            document.getElementById('stats-total-balance').textContent = `\u20b9${data.total_expenses.toFixed(2)}`;
+            document.getElementById('stats-total-balance').textContent = `\u20b9${(data.total_income - data.total_expenses).toFixed(2)}`;
             document.getElementById('stats-expenses-val').textContent = `\u20b9${data.total_expenses.toFixed(2)}`;
-            document.getElementById('stats-income-val').textContent = `\u20b90.00`;
+            document.getElementById('stats-income-val').textContent = `\u20b9${data.total_income.toFixed(2)}`;
 
             const categoriesList = document.getElementById('stats-categories-list');
             categoriesList.innerHTML = '';
             if (data.top_categories.length === 0) {
-                categoriesList.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">No expenses yet.</div>';
+                categoriesList.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">No transactions yet.</div>';
                 return;
             }
             const colors = ['color-1', 'color-2', 'color-3', 'color-4'];
@@ -298,15 +298,21 @@ document.addEventListener('DOMContentLoaded', () => {
             data.forEach(txn => {
                 const item = document.createElement('div');
                 item.className = 'txn-card';
-                const categoryInitial = (txn.category && txn.category.length > 0) ? txn.category[0].toUpperCase() : 'E';
+                const isIncome = txn.type === 'income';
+                const categoryInitial = (txn.category && txn.category.length > 0) ? txn.category[0].toUpperCase() : (isIncome ? 'I' : 'E');
+                const sign = isIncome ? '+' : '-';
+                const amountClass = isIncome ? 'positive' : 'negative';
+                const iconColor = isIncome ? '#10a37f' : '#4a5ee7';
+                const iconBg = isIncome ? 'rgba(16, 163, 127, 0.08)' : 'rgba(74, 94, 231, 0.08)';
+
                 item.innerHTML = `
-                    <div class="txn-icon-wrapper" style="color:#4a5ee7;background-color:rgba(74,94,231,0.08);">${categoryInitial}</div>
+                    <div class="txn-icon-wrapper" style="color:${iconColor};background-color:${iconBg};">${categoryInitial}</div>
                     <div class="txn-details">
-                        <div class="txn-title">${txn.description || 'Expense'}</div>
+                        <div class="txn-title">${txn.description || (isIncome ? 'Income' : 'Expense')}</div>
                         <div class="txn-subtitle">${txn.category || 'General'} &bull; ${txn.date}</div>
                     </div>
                     <div class="txn-actions-amount">
-                        <div class="txn-amount negative">-\u20b9${txn.amount.toFixed(2)}</div>
+                        <div class="txn-amount ${amountClass}">${sign}\u20b9${txn.amount.toFixed(2)}</div>
                     </div>
                 `;
                 transactionList.appendChild(item);
@@ -432,6 +438,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input id="cf-amount" type="number" min="0.01" step="0.01" value="${preview.amount}" placeholder="0.00" />
                     </div>
                     <div class="confirm-field">
+                        <label for="cf-type">Type</label>
+                        <select id="cf-type">
+                            <option value="expense" ${preview.type === 'expense' ? 'selected' : ''}>Expense</option>
+                            <option value="income" ${preview.type === 'income' ? 'selected' : ''}>Income</option>
+                        </select>
+                    </div>
+                    <div class="confirm-field">
                         <label for="cf-category">Category</label>
                         <select id="cf-category">${catOptions}</select>
                     </div>
@@ -479,10 +492,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Collect fields
             const body = {
                 amount: amount,
+                type: messageDiv.querySelector('#cf-type').value,
                 category: messageDiv.querySelector('#cf-category').value,
                 date: messageDiv.querySelector('#cf-date').value,
                 payment_mode: messageDiv.querySelector('#cf-payment').value.trim() || 'cash',
-                description: messageDiv.querySelector('#cf-desc').value.trim() || 'Expense',
+                description: messageDiv.querySelector('#cf-desc').value.trim() || 'Transaction',
             };
 
             // Disable button to prevent double-submit
@@ -502,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const card = messageDiv.querySelector('.confirm-card');
                     card.innerHTML = `
                         <div style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--accent-primary);margin-bottom:10px;">
-                            <i class="fa-solid fa-circle-check"></i> Saved! Expense for ${data.description} logged.
+                            <i class="fa-solid fa-circle-check"></i> Saved! ${data.type.charAt(0).toUpperCase() + data.type.slice(1)} for ${data.description} logged.
                         </div>
                         <div style="display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:0.88rem;line-height:1.7;">
                             <span style="color:var(--text-secondary);font-weight:600;text-transform:uppercase;font-size:0.78rem;">Amount</span>
@@ -515,6 +529,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span>${data.payment_mode}</span>
                             <span style="color:var(--text-secondary);font-weight:600;text-transform:uppercase;font-size:0.78rem;">Description</span>
                             <span>${data.description}</span>
+                            <span style="color:var(--text-secondary);font-weight:600;text-transform:uppercase;font-size:0.78rem;">Type</span>
+                            <span style="color:${data.type === 'income' ? '#10a37f' : 'inherit'}">${data.type}</span>
                         </div>
                     `;
                     scrollToBottom();

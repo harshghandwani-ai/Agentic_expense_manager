@@ -48,16 +48,17 @@ Table: expenses
   id           INTEGER PRIMARY KEY
   user_id      INTEGER   -- owner of this row (always filter by current user)
   amount       REAL      -- monetary amount
-  category     TEXT      -- food, shopping, transport, entertainment, health, utilities, other
+  category     TEXT      -- category e.g. food, salary, gift, shopping, utilities
   date         TEXT      -- YYYY-MM-DD
-  payment_mode TEXT      -- cash, UPI, credit card, debit card
-  description  TEXT      -- what was bought
+  payment_mode TEXT      -- cash, UPI, bank transfer, etc.
+  description  TEXT      -- brief summary of transaction
+  type         TEXT      -- 'expense' or 'income' (ALWAYS distinguish between them)
   created_at   TEXT      -- ISO-8601 UTC timestamp
 """
 
 SQL_SYSTEM_PROMPT_TEMPLATE = """You are a SQLite expert. Today is {today}.
 
-Given a natural-language question about expenses, generate a single valid SQLite SELECT statement.
+Given a natural-language question about finances, generate a single valid SQLite SELECT statement.
 
 Database schema:
 {schema}
@@ -66,6 +67,10 @@ Rules:
 - Output ONLY the raw SQL. No markdown fences, no explanation.
 - Use only SELECT statements.
 - ALWAYS include the condition: user_id = {user_id}
+- IMPORTANT: Filter by type='expense' or type='income' accurately. 
+  - If the user asks for "total spending", use type='expense'.
+  - If the user asks for "total income", use type='income'.
+  - If the user asks for "balance", use SUM(CASE WHEN type='income' THEN amount ELSE -amount END).
 - For date ranges use ISO-8601 strings (e.g. '{month}-01' for start of current month).
 - For "this week" use date('{today}','-6 days') as the lower bound.
 - Aliases make column names readable (e.g. SUM(amount) AS total).

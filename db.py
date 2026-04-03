@@ -71,6 +71,7 @@ def init_db() -> None:
                         date         TEXT        NOT NULL,
                         payment_mode TEXT        NOT NULL,
                         description  TEXT        NOT NULL,
+                        type         TEXT        NOT NULL DEFAULT 'expense',
                         created_at   TEXT        NOT NULL
                     )
                 """)
@@ -87,6 +88,10 @@ def init_db() -> None:
                 # migration: add user_id if missing
                 cur.execute("""
                     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS user_id INTEGER NOT NULL DEFAULT 0
+                """)
+                # migration: add type if missing
+                cur.execute("""
+                    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'expense'
                 """)
             conn.commit()
         finally:
@@ -111,6 +116,7 @@ def init_db() -> None:
                     date         TEXT    NOT NULL,
                     payment_mode TEXT    NOT NULL,
                     description  TEXT    NOT NULL,
+                    type         TEXT    NOT NULL DEFAULT 'expense',
                     created_at   TEXT    NOT NULL
                 )
             """)
@@ -128,6 +134,8 @@ def init_db() -> None:
             col_names = [row[1] for row in existing]
             if "user_id" not in col_names:
                 conn.execute("ALTER TABLE expenses ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
+            if "type" not in col_names:
+                conn.execute("ALTER TABLE expenses ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'")
             conn.commit()
 
 
@@ -141,8 +149,8 @@ def insert_expense(expense: Expense, user_id: int = 0) -> int:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO expenses (user_id, amount, category, date, payment_mode, description, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO expenses (user_id, amount, category, date, payment_mode, description, type, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (
@@ -152,6 +160,7 @@ def insert_expense(expense: Expense, user_id: int = 0) -> int:
                         expense.date,
                         expense.payment_mode,
                         expense.description,
+                        expense.type,
                         created_at,
                     ),
                 )
@@ -164,8 +173,8 @@ def insert_expense(expense: Expense, user_id: int = 0) -> int:
         with _sqlite_conn() as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO expenses (user_id, amount, category, date, payment_mode, description, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO expenses (user_id, amount, category, date, payment_mode, description, type, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -174,6 +183,7 @@ def insert_expense(expense: Expense, user_id: int = 0) -> int:
                     expense.date,
                     expense.payment_mode,
                     expense.description,
+                    expense.type,
                     created_at,
                 ),
             )

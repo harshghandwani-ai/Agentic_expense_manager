@@ -119,24 +119,39 @@ async def query_expenses(body: QueryRequest) -> QueryResponse:
 
 # -- GET /api/expenses/stats -------------------------------------------
 
-@router.get("/stats", summary="Get expense statistics")
+@router.get("/stats", summary="Get financial statistics")
 async def get_stats(
     current_user: TokenData = Depends(get_current_user),
 ) -> dict:
     try:
-        total_rows = run_query(
-            "SELECT SUM(amount) as total FROM expenses WHERE user_id = ?",
+        # Total Expenses
+        exp_rows = run_query(
+            "SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND type = 'expense'",
             (current_user.user_id,),
         )
-        total = total_rows[0]["total"] if total_rows and total_rows[0]["total"] else 0.0
+        total_expenses = exp_rows[0]["total"] if exp_rows and exp_rows[0]["total"] else 0.0
+
+        # Total Income
+        inc_rows = run_query(
+            "SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND type = 'income'",
+            (current_user.user_id,),
+        )
+        total_income = inc_rows[0]["total"] if inc_rows and inc_rows[0]["total"] else 0.0
+
+        # Top Categories (Spending ONLY)
         cat_rows = run_query(
             "SELECT LOWER(category) as category, SUM(amount) as total FROM expenses "
-            "WHERE user_id = ? "
+            "WHERE user_id = ? AND type = 'expense' "
             "GROUP BY LOWER(category) ORDER BY total DESC LIMIT 4",
             (current_user.user_id,),
         )
         categories = [{"name": r["category"], "amount": r["total"]} for r in cat_rows]
-        return {"total_expenses": total, "top_categories": categories}
+
+        return {
+            "total_expenses": total_expenses, 
+            "total_income": total_income,
+            "top_categories": categories
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database query failed: {exc}") from exc
 
@@ -261,6 +276,7 @@ async def confirm_expense(
             date=body.date,
             payment_mode=body.payment_mode,
             description=body.description,
+            type=body.type,
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid expense data: {exc}") from exc

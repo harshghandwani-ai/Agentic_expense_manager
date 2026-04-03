@@ -45,40 +45,46 @@ LOG_TOOL_DEFINITION = {
     "type": "function",
     "function": {
         "name": "log_expense",
-        "description": "Log a new expense into the database. Use this when the user describes spending money.",
+        "description": "Log a new transaction (expense or income) into the database.",
         "parameters": {
             "type": "object",
             "properties": {
-                "amount": {"type": "number", "description": "The monetary amount spent (float)."},
-                "category": {"type": "string", "enum": ["food", "shopping", "transport", "entertainment", "health", "utilities", "other"], "description": "The category of the expense."},
+                "amount": {"type": "number", "description": "The monetary amount (float)."},
+                "category": {"type": "string", "description": "The category (e.g. salary, food, gift, shopping)."},
                 "date": {"type": "string", "description": "The date in YYYY-MM-DD format. Use today if not specified."},
-                "payment_mode": {"type": "string", "description": "The payment mode. Default to 'cash' if not mentioned."},
-                "description": {"type": "string", "description": "A brief noun phrase describing what was bought."}
+                "payment_mode": {"type": "string", "description": "The payment mode: cash, UPI, bank transfer, etc."},
+                "description": {"type": "string", "description": "A brief noun phrase describing the transaction."},
+                "type": {"type": "string", "enum": ["expense", "income"], "description": "Whether this is an 'expense' (spending) or 'income' (receiving)."}
             },
-            "required": ["amount", "category", "date", "payment_mode", "description"]
+            "required": ["amount", "category", "date", "payment_mode", "description", "type"]
         }
     }
 }
 
 ROUTER_SYSTEM_PROMPT = f"""
-You are a helpful personal expense assistant. Today is {TODAY}.
+You are a helpful personal finance assistant. Today is {TODAY}.
 
 The user's message falls into exactly one of three categories:
 
-1. LOG - The user is describing a new expense they want to record.
-Examples: "I spent 500 on shoes using UPI", "paid 200 for coffee"
--> Call the log_expense tool.
+1. LOG - The user is describing a new transaction (expense or income) to record.
+Examples: 
+  - "I spent 500 on shoes using UPI" (type='expense')
+  - "Received 50000 salary in bank" (type='income')
+  - "Salary credited" (type='income')
+  - "found 100 on the street" (type='income')
+  - "paid 200 for coffee" (type='expense')
+  - "bonus of 1000 received" (type='income')
+-> Call the log_expense tool. Be careful to set 'type' correctly.
 
-2. QUERY - The user is asking a question about their past spending/expenses in the database.
-Examples: "how much did I spend this month", "show my last 5 expenses", "what category do I spend most on"
+2. QUERY - The user is asking a question about their past spending or income in the database.
+Examples: "how much did I spend this month", "show my income history", "what is my total balance", "how much was my last salary"
 -> Call the read_expenses tool.
 
-3. CHAT - Anything else: greetings, general questions, clarifications, meta questions about the conversation.
-Examples: "what was my last query", "hello", "what can you do", "what did I just say"
+3. CHAT - Anything else: greetings, general questions, clarifications.
+Examples: "hello", "what can you do", "thanks"
 -> Reply conversationally and helpfully. Do NOT call either tool.
 
-Be precise about which category applies. When in doubt between LOG and CHAT, ask yourself:
-is there a clear monetary amount being spent. If not, it is CHAT.
+Be precise. If money is exchanged (spent or received), use LOG.
 """
 
 

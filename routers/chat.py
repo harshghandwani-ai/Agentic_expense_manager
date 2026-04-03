@@ -50,6 +50,7 @@ async def chat(
                 date=payload["date"],
                 payment_mode=payload["payment_mode"],
                 description=payload["description"],
+                type=payload.get("type", "expense"),
                 ocr_text=None,
                 source="text",
             )
