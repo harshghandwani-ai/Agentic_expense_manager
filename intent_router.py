@@ -50,7 +50,11 @@ LOG_TOOL_DEFINITION = {
             "type": "object",
             "properties": {
                 "amount": {"type": "number", "description": "The monetary amount (float)."},
-                "category": {"type": "string", "description": "The category (e.g. salary, food, gift, shopping)."},
+                "category": {
+                    "type": "string", 
+                    "enum": ["food", "shopping", "transport", "entertainment", "health", "utilities", "salary", "gift", "investment", "other"],
+                    "description": "The category of the transaction."
+                },
                 "date": {"type": "string", "description": "The date in YYYY-MM-DD format. Use today if not specified."},
                 "payment_mode": {"type": "string", "description": "The payment mode: cash, UPI, bank transfer, etc."},
                 "description": {"type": "string", "description": "A brief noun phrase describing the transaction."},
@@ -70,7 +74,11 @@ BUDGET_TOOL_DEFINITION = {
             "type": "object",
             "properties": {
                 "amount": {"type": "number", "description": "The budget amount (float)."},
-                "category": {"type": "string", "description": "The category (e.g. food, shopping, total). Use 'total' for an overall budget."},
+                "category": {
+                    "type": "string", 
+                    "enum": ["food", "shopping", "transport", "entertainment", "health", "utilities", "salary", "gift", "investment", "other", "total"],
+                    "description": "The category. Use 'total' for an overall budget."
+                },
                 "period": {"type": "string", "enum": ["monthly", "weekly"], "description": "The budget period. Default is 'monthly'."}
             },
             "required": ["amount", "category"]

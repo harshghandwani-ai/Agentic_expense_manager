@@ -8,10 +8,14 @@ Accepts any natural-language message and routes it to the correct pipeline:
   - chat  -> direct LLM reply    -> returns AI answer
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
 
 from auth_utils import TokenData, get_current_user
 from db import get_chat_history, insert_chat_message, upsert_budget
-from intent_router import route
+from intent_router import route, client, ROUTER_SYSTEM_PROMPT
+from config import OPENAI_MODEL
 from query_engine import execute_read_expenses, summarize_results
 from schemas import ChatRequest, ChatResponse, ExpensePreview
 
@@ -20,89 +24,89 @@ router = APIRouter()
 
 @router.post(
     "",
-    response_model=ChatResponse,
-    summary="Unified chat endpoint",
-    description=(
-        "Send any natural-language message. The server routes it to "
-        "log an expense (returns preview for confirmation), "
-        "query spending history, or answer general questions."
-    ),
+    summary="Unified streaming chat endpoint",
 )
 async def chat(
     body: ChatRequest,
     current_user: TokenData = Depends(get_current_user),
-) -> ChatResponse:
-    # 1. Fetch history (capped at 6 messages / 3 turns)
-    history = get_chat_history(current_user.user_id, limit=8)
-    
-    try:
-        # 2. Pass history to router
-        intent, payload = route(body.message, history=history)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Intent routing failed: {exc}") from exc
-
-    # ---- LOG: extract fields, return preview -- do NOT save to DB -----------
-    if intent == "log":
+):
+    async def event_generator():
+        # 1. Fetch history (capped at 8 messages / 4 turns)
+        history = get_chat_history(current_user.user_id, limit=8)
+        
         try:
-            preview = ExpensePreview(
-                amount=payload["amount"],
-                category=payload["category"],
-                date=payload["date"],
-                payment_mode=payload["payment_mode"],
-                description=payload["description"],
-                type=payload.get("type", "expense"),
-                ocr_text=None,
-                source="text",
-            )
+            # 2. Intent Classification
+            intent, payload = route(body.message, history=history)
+            
+            # Send the detected intent first
+            yield f"data: {json.dumps({'type': 'intent', 'value': intent})}\n\n"
+            await asyncio.sleep(0.01)
+
+            # ---- LOG --------------------------------------------------------
+            if intent == "log":
+                preview = {
+                    "amount": payload["amount"],
+                    "category": payload["category"],
+                    "date": payload["date"],
+                    "payment_mode": payload["payment_mode"],
+                    "description": payload["description"],
+                    "type": payload.get("type", "expense"),
+                    "source": "text"
+                }
+                answer = "Here's what I extracted. Please confirm or edit before saving."
+                yield f"data: {json.dumps({'type': 'log', 'answer': answer, 'expense': preview})}\n\n"
+
+            # ---- QUERY ------------------------------------------------------
+            elif intent == "query":
+                tool_result = execute_read_expenses(payload, user_id=current_user.user_id)
+                answer = summarize_results(body.message, tool_result)
+                yield f"data: {json.dumps({'type': 'query', 'answer': answer})}\n\n"
+
+            # ---- BUDGET -----------------------------------------------------
+            elif intent == "budget":
+                amount = payload.get("amount")
+                category = payload.get("category", "total")
+                period = payload.get("period", "monthly")
+                
+                if amount:
+                    upsert_budget(current_user.user_id, category, amount, period)
+                    insert_chat_message(current_user.user_id, "user", body.message)
+                    answer = f"Done! I've set your {period} budget for **{category}** to **\u20b9{amount:,.2f}**."
+                    insert_chat_message(current_user.user_id, "assistant", answer)
+                    yield f"data: {json.dumps({'type': 'budget', 'answer': answer})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Budget amount missing'})}\n\n"
+
+            # ---- CHAT -------------------------------------------------------
+            else:
+                # Store user message
+                insert_chat_message(current_user.user_id, "user", body.message)
+                
+                # Start streaming reply
+                messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}]
+                if history: messages.extend(history)
+                messages.append({"role": "user", "content": body.message})
+                
+                full_content = ""
+                completion = client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=messages,
+                    stream=True,
+                    temperature=0.7
+                )
+                
+                for chunk in completion:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_content += content
+                        yield f"data: {json.dumps({'type': 'chunk', 'value': content})}\n\n"
+                        await asyncio.sleep(0.01) # Small pause for smooth UI
+                
+                # Save assistant message
+                insert_chat_message(current_user.user_id, "assistant", full_content)
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
         except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Could not build expense preview from extracted data: {exc}",
-            ) from exc
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 
-        answer = (
-            f"Here's what I extracted from your message. "
-            f"Please review the details below and confirm (or edit) before saving."
-        )
-        return ChatResponse(intent="log", answer=answer, expense=preview)
-
-    # ---- QUERY --------------------------------------------------------------
-    if intent == "query":
-        try:
-            tool_result = execute_read_expenses(payload, user_id=current_user.user_id)
-            answer = summarize_results(body.message, tool_result)
-            return ChatResponse(intent="query", answer=answer, expense=None)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to query expenses: {exc}"
-            ) from exc
-
-    # ---- BUDGET -------------------------------------------------------------
-    if intent == "budget":
-        try:
-            amount = payload.get("amount")
-            category = payload.get("category", "total")
-            period = payload.get("period", "monthly")
-            
-            if not amount:
-                 raise HTTPException(status_code=400, detail="Budget amount is required.")
-            
-            upsert_budget(current_user.user_id, category, amount, period)
-            
-            # Save message turn
-            insert_chat_message(current_user.user_id, "user", body.message)
-            answer = f"Done! I've set your {period} budget for **{category}** to **\u20b9{amount:,.2f}**. I'll help you track it in the Stats tab."
-            insert_chat_message(current_user.user_id, "assistant", answer)
-            
-            return ChatResponse(intent="budget", answer=answer, expense=None)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to set budget: {exc}"
-            ) from exc
-
-    # ---- CHAT ---------------------------------------------------------------
-    # Save the conversation turn to the database
-    insert_chat_message(current_user.user_id, "user", body.message)
-    insert_chat_message(current_user.user_id, "assistant", payload)
-    
-    return ChatResponse(intent=intent, answer=payload, expense=None)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

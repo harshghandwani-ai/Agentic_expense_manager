@@ -440,10 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Helpers ────────────────────────────────────────────────────────────
-    function appendMessage(sender, text, id = null) {
+    function appendMessage(sender, text = '') {
         const item = messageTemplate.content.cloneNode(true);
         const messageDiv = item.querySelector('.message');
-        if (id) messageDiv.id = id;
         const avatarDiv = item.querySelector('.avatar');
         const contentDiv = item.querySelector('.message-text');
 
@@ -454,16 +453,23 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (sender === 'ai') {
             messageDiv.classList.add('ai-message');
             avatarDiv.innerHTML = '<i class="fa-solid fa-wallet"></i>';
-            contentDiv.innerHTML = '<p>' + text.replace(/\n/g, '<br>') + '</p>';
+            contentDiv.innerHTML = '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
         } else {
             messageDiv.classList.add('ai-message');
             avatarDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:#ff5555"></i>';
-            contentDiv.innerHTML = `<p style="color:#ff5555">${text}</p>`;
+            contentDiv.innerHTML = `<p style="color:#ff5555">${escapeHtml(text)}</p>`;
         }
 
         chatMessages.appendChild(messageDiv);
         scrollToBottom();
-        return messageDiv;
+        return contentDiv;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function addTypingIndicator() {
@@ -517,9 +523,10 @@ document.addEventListener('DOMContentLoaded', () => {
         messageDiv.classList.add('ai-message');
         avatarDiv.innerHTML = '<i class="fa-solid fa-wallet"></i>';
 
-        const catOptions = CATEGORIES.map(c =>
-            `<option value="${c}" ${c === preview.category ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`
-        ).join('');
+        const catOptions = CATEGORIES.map(c => {
+            const isSelected = preview.category && c.toLowerCase() === preview.category.toLowerCase().trim();
+            return `<option value="${c}" ${isSelected ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`;
+        }).join('');
 
         const ocrSection = preview.ocr_text
             ? `<details class="confirm-ocr">
@@ -663,15 +670,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     // ── Image Upload ───────────────────────────────────────────────────────
     const attachBtn = document.getElementById('attach-btn');
     const imageUpload = document.getElementById('image-upload');
@@ -716,11 +714,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Chat Submit ────────────────────────────────────────────────────────
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const message = messageInput.value.trim();
-        if (!message) return;
+        const text = messageInput.value.trim();
+        if (!text) return;
 
         if (welcomeContainer) welcomeContainer.style.display = 'none';
-        appendMessage('user', message);
+        appendMessage('user', text);
 
         messageInput.value = '';
         messageInput.style.height = 'auto';
@@ -732,28 +730,67 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await authFetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message: text }),
             });
 
-            const data = await response.json();
-            removeElement(typingId);
-
             if (!response.ok) {
-                appendMessage('system', 'Sorry, I encountered an error while processing your request.');
-                return;
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to connect');
             }
 
-            if (data.intent === 'log' && data.expense) {
-                // Only render the confirmation card (it has its own intro)
-                renderConfirmationCard(data.expense);
-            } else {
-                appendMessage('ai', data.answer);
+            // --- STREAMING PROCESSING ---
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiContentDiv = null;
+            let fullAiText = '';
+            let buffer = '';
+
+            removeElement(typingId);
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep partial line in buffer
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const jsonStr = line.replace('data: ', '').trim();
+                    if (!jsonStr) continue;
+
+                    try {
+                        const data = JSON.parse(jsonStr);
+
+                        if (data.type === 'intent') {
+                            if (data.value === 'chat') {
+                                aiContentDiv = appendMessage('ai', '');
+                            }
+                        } else if (data.type === 'chunk') {
+                            if (!aiContentDiv) aiContentDiv = appendMessage('ai', '');
+                            fullAiText += data.value;
+                            aiContentDiv.innerHTML = '<p>' + escapeHtml(fullAiText).replace(/\n/g, '<br>') + '</p>';
+                            scrollToBottom();
+                        } else if (data.type === 'log') {
+                            renderConfirmationCard(data.expense);
+                        } else if (data.type === 'query' || data.type === 'budget') {
+                            appendMessage('ai', data.answer);
+                        } else if (data.type === 'error') {
+                            appendMessage('system', data.message);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing SSE chunk:', e, jsonStr);
+                    }
+                }
             }
 
         } catch (error) {
             removeElement(typingId);
-            appendMessage('system', '\uD83D\uDD0C Connection error. Please ensure the server is running.');
+            appendMessage('system', ` \u203C ${error.message}`);
             console.error('Chat error:', error);
+        } finally {
+            sendBtn.removeAttribute('disabled');
         }
     });
 
