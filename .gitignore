@@ -1,21 +1,49 @@
+# ── Environment & Secrets ─────────────────────────────────────────────────────
 .env
 .env.*
+secrets.json
+
+# ── Python & Caches ───────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
 .venv/
-error.log
-ocr.log
-*.log
-current_error.log
+venv/
+env/
+.cache
+.coverage
+.pytest_cache/
+
+# ── Database & Uploads ────────────────────────────────────────────────────────
 expenses.db
+db.sqlite3
+data/
 uploads/
-_fix_js.py
-_write_expenses.py
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+
+# ── IDE & OS Junk ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Dev/Test Scripts (not needed in production) ───────────────────────────────
 test.py
+test_*.py
 voice_test.py
 check_db.py
-test_llm_extractor.py
+client.py
+ocr.bak.py
+_fix_js.py
+_write_expenses.py
 test_results.txt
 test_results_utf8.txt
-.gitignore
-.gitignore
+
+# ── AI Agent Artifacts ────────────────────────────────────────────────────────
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/

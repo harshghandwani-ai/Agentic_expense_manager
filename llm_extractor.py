@@ -1,9 +1,13 @@
 import json
+import time
+import logging
+import uuid
 from datetime import date
 from openai import OpenAI
 from models import Expense
 from config import OPENAI_API_KEY, OPENAI_MODEL
 
+logger = logging.getLogger(__name__)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 TODAY = date.today().isoformat()
@@ -35,6 +39,8 @@ Respond ONLY with a valid JSON object. Do not include any explanations or markdo
 
 def extract_expense(text: str) -> Expense:
     """Call OpenAI to extract structured expense data from natural language."""
+    request_id = str(uuid.uuid4())
+    t0 = time.time()
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         response_format={"type": "json_object"},
@@ -43,6 +49,11 @@ def extract_expense(text: str) -> Expense:
             {"role": "user", "content": text},
         ],
         temperature=0,
+    )
+    duration_ms = round((time.time() - t0) * 1000)
+    logger.info(
+        "[LATENCY] request_id=%s stage=text_extraction model=%s duration_ms=%d",
+        request_id, OPENAI_MODEL, duration_ms
     )
 
     raw = response.choices[0].message.content
@@ -74,6 +85,8 @@ Respond ONLY with a valid JSON object. If the text is unreadable or non-financia
 
 def extract_expense_from_receipt(ocr_text: str) -> Expense:
     """Call OpenAI to extract structured expense data from messy OCR strings."""
+    request_id = str(uuid.uuid4())
+    t0 = time.time()
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         response_format={"type": "json_object"},
@@ -82,6 +95,11 @@ def extract_expense_from_receipt(ocr_text: str) -> Expense:
             {"role": "user", "content": ocr_text},
         ],
         temperature=0,
+    )
+    duration_ms = round((time.time() - t0) * 1000)
+    logger.info(
+        "[LATENCY] request_id=%s stage=receipt_extraction model=%s duration_ms=%d",
+        request_id, OPENAI_MODEL, duration_ms
     )
 
     raw = response.choices[0].message.content

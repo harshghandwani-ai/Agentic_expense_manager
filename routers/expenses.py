@@ -14,9 +14,13 @@ import csv
 import io
 import json
 import os
+import time
+import logging
 import uuid
 from datetime import date
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
 from openai import OpenAI
@@ -214,6 +218,9 @@ async def upload_image(
     file: UploadFile = File(...),
     current_user: TokenData = Depends(get_current_user),
 ) -> ExpensePreview:
+    request_id = str(uuid.uuid4())[:8]
+    t_total = time.time()
+
     content_type = file.content_type or ""
     if not any(content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES):
         raise HTTPException(
@@ -229,23 +236,41 @@ async def upload_image(
             status_code=413,
             detail=f"Image too large ({len(file_bytes)//(1024*1024)} MB). Max 10 MB.",
         )
+
+    # Stage 1: Save file to disk
     original_name = os.path.basename(file.filename or "upload")
     safe_filename = f"{uuid.uuid4().hex}_{original_name}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    t_save = time.time()
     try:
         with open(file_path, "wb") as f:
             f.write(file_bytes)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to save image to disk: {exc}") from exc
+    logger.info(
+        "[LATENCY] request_id=%s stage=ocr_file_save size_bytes=%d duration_ms=%d",
+        request_id, len(file_bytes), round((time.time() - t_save) * 1000)
+    )
+
+    # Stage 2: OCR compute
+    t_ocr = time.time()
     try:
         raw_text: str = get_engine().extract_raw_text(os.path.abspath(file_path))
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {exc}") from exc
+    logger.info(
+        "[LATENCY] request_id=%s stage=ocr_compute duration_ms=%d",
+        request_id, round((time.time() - t_ocr) * 1000)
+    )
+
     if not raw_text.strip():
         raise HTTPException(
             status_code=422,
             detail="No readable text detected. Please upload a clear photo of a receipt.",
         )
+
+    # Stage 3: LLM extraction
+    t_llm = time.time()
     try:
         expense = extract_expense(raw_text)
     except (ValueError, KeyError) as exc:
@@ -255,6 +280,15 @@ async def upload_image(
         ) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"LLM extraction failed: {exc}") from exc
+    logger.info(
+        "[LATENCY] request_id=%s stage=ocr_llm_extraction duration_ms=%d",
+        request_id, round((time.time() - t_llm) * 1000)
+    )
+    logger.info(
+        "[LATENCY] request_id=%s stage=ocr_pipeline_total duration_ms=%d",
+        request_id, round((time.time() - t_total) * 1000)
+    )
+
     return ExpensePreview(
         amount=expense.amount,
         category=expense.category,

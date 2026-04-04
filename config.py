@@ -5,6 +5,8 @@ load_dotenv()
 
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 DB_PATH: str = os.getenv("DB_PATH", "expenses.db")
+
+# Model used for all LLM calls (classification, extraction, chat)
 OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # When set, db.py uses PostgreSQL (Neon in production).

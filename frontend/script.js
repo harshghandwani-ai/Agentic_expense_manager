@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let statusClass = '';
                 if (percentage >= 90) statusClass = 'danger';
                 else if (percentage >= 70) statusClass = 'warning';
-                
+
                 overallBudgetContainer.innerHTML = `
                     <div class="overall-budget-header">
                         <span>Total Monthly Budget</span>
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const colors = ['color-1', 'color-2', 'color-3', 'color-4'];
             data.top_categories.forEach((cat, index) => {
                 const colorClass = colors[index % colors.length];
-                
+
                 // If there's a budget, percentage is based on budget. Otherwise, based on total expenses.
                 let percentage = 0;
                 let statusClass = '';
@@ -727,6 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const typingId = addTypingIndicator();
 
         try {
+            const t_fetch_start = performance.now();
             const response = await authFetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -744,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let aiContentDiv = null;
             let fullAiText = '';
             let buffer = '';
+            let ttftLogged = false;
 
             removeElement(typingId);
 
@@ -768,6 +770,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 aiContentDiv = appendMessage('ai', '');
                             }
                         } else if (data.type === 'chunk') {
+                            if (!ttftLogged) {
+                                const ttft = Math.round(performance.now() - t_fetch_start);
+                                console.info(`[TTFT] Time to First Token: ${ttft}ms`);
+                                ttftLogged = true;
+                            }
                             if (!aiContentDiv) aiContentDiv = appendMessage('ai', '');
                             fullAiText += data.value;
                             aiContentDiv.innerHTML = '<p>' + escapeHtml(fullAiText).replace(/\n/g, '<br>') + '</p>';

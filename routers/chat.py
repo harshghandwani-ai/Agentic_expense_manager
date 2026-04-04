@@ -10,6 +10,9 @@ Accepts any natural-language message and routes it to the correct pipeline:
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 import json
+import time
+import uuid
+import logging
 import asyncio
 
 from auth_utils import TokenData, get_current_user
@@ -20,6 +23,7 @@ from query_engine import execute_read_expenses, summarize_results
 from schemas import ChatRequest, ChatResponse, ExpensePreview
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -31,12 +35,20 @@ async def chat(
     current_user: TokenData = Depends(get_current_user),
 ):
     async def event_generator():
+        request_id = str(uuid.uuid4())[:8]
+        t_request_start = time.time()
+
         # 1. Fetch history (capped at 8 messages / 4 turns)
         history = get_chat_history(current_user.user_id, limit=8)
         
         try:
             # 2. Intent Classification
+            t_intent = time.time()
             intent, payload = route(body.message, history=history)
+            logger.info(
+                "[LATENCY] request_id=%s stage=intent_classification intent=%s duration_ms=%d",
+                request_id, intent, round((time.time() - t_intent) * 1000)
+            )
             
             # Send the detected intent first
             yield f"data: {json.dumps({'type': 'intent', 'value': intent})}\n\n"
@@ -44,6 +56,7 @@ async def chat(
 
             # ---- LOG --------------------------------------------------------
             if intent == "log":
+                t_extract = time.time()
                 preview = {
                     "amount": payload["amount"],
                     "category": payload["category"],
@@ -53,13 +66,22 @@ async def chat(
                     "type": payload.get("type", "expense"),
                     "source": "text"
                 }
+                logger.info(
+                    "[LATENCY] request_id=%s stage=log_preview duration_ms=%d",
+                    request_id, round((time.time() - t_extract) * 1000)
+                )
                 answer = "Here's what I extracted. Please confirm or edit before saving."
                 yield f"data: {json.dumps({'type': 'log', 'answer': answer, 'expense': preview})}\n\n"
 
             # ---- QUERY ------------------------------------------------------
             elif intent == "query":
+                t_query = time.time()
                 tool_result = execute_read_expenses(payload, user_id=current_user.user_id)
                 answer = summarize_results(body.message, tool_result)
+                logger.info(
+                    "[LATENCY] request_id=%s stage=query_execution duration_ms=%d",
+                    request_id, round((time.time() - t_query) * 1000)
+                )
                 yield f"data: {json.dumps({'type': 'query', 'answer': answer})}\n\n"
 
             # ---- BUDGET -----------------------------------------------------
@@ -88,6 +110,8 @@ async def chat(
                 messages.append({"role": "user", "content": body.message})
                 
                 full_content = ""
+                first_token = True
+                t_stream_start = time.time()
                 completion = client.chat.completions.create(
                     model=OPENAI_MODEL,
                     messages=messages,
@@ -98,15 +122,31 @@ async def chat(
                 for chunk in completion:
                     if chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
+                        if first_token:
+                            logger.info(
+                                "[LATENCY] request_id=%s stage=chat_ttft duration_ms=%d",
+                                request_id, round((time.time() - t_stream_start) * 1000)
+                            )
+                            first_token = False
                         full_content += content
                         yield f"data: {json.dumps({'type': 'chunk', 'value': content})}\n\n"
-                        await asyncio.sleep(0.01) # Small pause for smooth UI
+                        await asyncio.sleep(0.01)
                 
                 # Save assistant message
                 insert_chat_message(current_user.user_id, "assistant", full_content)
+                logger.info(
+                    "[LATENCY] request_id=%s stage=chat_stream_complete duration_ms=%d",
+                    request_id, round((time.time() - t_stream_start) * 1000)
+                )
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as exc:
             yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+        finally:
+            logger.info(
+                "[LATENCY] request_id=%s stage=request_total duration_ms=%d",
+                request_id, round((time.time() - t_request_start) * 1000)
+            )
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

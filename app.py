@@ -5,22 +5,39 @@ Run with:
     uvicorn app:app --reload
 """
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db import init_db
+from ocr import get_engine
 from routers import expenses
 from routers import chat
 from routers import auth
 from routers import voice
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+# uvicorn sets up its own root logging handler — we attach our loggers to it
+# by setting their level. basicConfig() won't work here (uvicorn sets it first).
+_LOG_MODULES = ["routers.chat", "routers.expenses", "llm_extractor", "ocr", "__main__"]
+for _m in _LOG_MODULES:
+    logging.getLogger(_m).setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise the database on startup."""
+    """Initialise DB and pre-warm OCR engine on startup."""
     init_db()
+    logger.info("[STARTUP] Pre-warming OCR engine...")
+    try:
+        get_engine()  # loads PaddleOCR model into memory once
+        logger.info("[STARTUP] OCR engine ready.")
+    except Exception as exc:
+        logger.warning("[STARTUP] OCR pre-warm failed (non-fatal): %s", exc)
     yield
 
 
