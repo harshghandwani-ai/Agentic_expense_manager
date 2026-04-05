@@ -21,9 +21,15 @@ from intent_router import route, client, ROUTER_SYSTEM_PROMPT
 from config import OPENAI_MODEL
 from query_engine import execute_read_expenses, summarize_results
 from schemas import ChatRequest, ChatResponse, ExpensePreview
+from db import clear_chat_history
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+@router.delete("")
+async def clear_chat(current_user: TokenData = Depends(get_current_user)):
+    clear_chat_history(current_user.user_id)
+    return {"status": "cleared"}
 
 
 @router.post(
@@ -40,6 +46,9 @@ async def chat(
 
         # 1. Fetch history (capped at 8 messages / 4 turns)
         history = get_chat_history(current_user.user_id, limit=8)
+        
+        # Insert user message for context immediately
+        insert_chat_message(current_user.user_id, "user", body.message)
         
         try:
             # 2. Intent Classification
@@ -76,13 +85,24 @@ async def chat(
             # ---- QUERY ------------------------------------------------------
             elif intent == "query":
                 t_query = time.time()
-                tool_result = execute_read_expenses(payload, user_id=current_user.user_id)
-                answer = summarize_results(body.message, tool_result)
+                tool_result = execute_read_expenses(payload, history=history, user_id=current_user.user_id)
+                
+                # Start streaming the response
+                completion = summarize_results(body.message, tool_result, history=history)
+                full_content = ""
+                for chunk in completion:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_content += content
+                        yield f"data: {json.dumps({'type': 'chunk', 'value': content})}\n\n"
+                        await asyncio.sleep(0.01)
+
                 logger.info(
                     "[LATENCY] request_id=%s stage=query_execution duration_ms=%d",
                     request_id, round((time.time() - t_query) * 1000)
                 )
-                yield f"data: {json.dumps({'type': 'query', 'answer': answer})}\n\n"
+                insert_chat_message(current_user.user_id, "assistant", full_content)
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
             # ---- BUDGET -----------------------------------------------------
             elif intent == "budget":
@@ -92,7 +112,6 @@ async def chat(
                 
                 if amount:
                     upsert_budget(current_user.user_id, category, amount, period)
-                    insert_chat_message(current_user.user_id, "user", body.message)
                     answer = f"Done! I've set your {period} budget for **{category}** to **\u20b9{amount:,.2f}**."
                     insert_chat_message(current_user.user_id, "assistant", answer)
                     yield f"data: {json.dumps({'type': 'budget', 'answer': answer})}\n\n"
@@ -101,9 +120,6 @@ async def chat(
 
             # ---- CHAT -------------------------------------------------------
             else:
-                # Store user message
-                insert_chat_message(current_user.user_id, "user", body.message)
-                
                 # Start streaming reply
                 messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}]
                 if history: messages.extend(history)

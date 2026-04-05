@@ -40,10 +40,11 @@ _fix_js.py
 _write_expenses.py
 test_results.txt
 test_results_utf8.txt
+latency_results.json
 
 # ── AI Agent Artifacts ────────────────────────────────────────────────────────
 .gemini/
 .agents/
 .agent/
 _agents/
-_agent/
+_agent/

@@ -12,28 +12,17 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TODAY = date.today().isoformat()
 
-SYSTEM_PROMPT = f"""You are a professional personal finance extraction assistant.
-Today's date is {TODAY}.
+SYSTEM_PROMPT = f"""You are a personal finance extraction assistant. Today is {TODAY}.
 
-From the user's natural language input, extract the following fields into a JSON object:
-- amount (float): the monetary amount.
-- type (string): 'expense' (spending) or 'income' (receiving).
-- category (string): choose the MOST relevant category from this list:
-    - shopping: clothing, electronics, household items, beauty, gifts.
-    - transport: fuel, taxi, bus, train, tolls, parking, vehicle maintenance.
-    - entertainment: movies, streaming (Netflix/Spotify), games, concerts, sports, hobbies.
-    - health: medicines, doctor visits, hospital bills, fitness, gym, pharmacy.
-    - utilities: electricity, water, gas, internet, mobile recharge.
-    - food: restaurants, cafes, groceries, snacks, drinks.
-    - salary: internal income from work (Type should be 'income').
-    - gift: money received as a gift (income) or spent on others (expense).
-    - investment: stocks, mutual funds, savings, insurance premiums.
-    - other: anything that does not fit the above.
-- date (string): in YYYY-MM-DD format; use today's date ({TODAY}) if not explicitly mentioned.
-- payment_mode (string): e.g., cash, UPI, bank transfer, credit card, debit card; default to "cash" if not mentioned.
-- description (string): brief noun phrase describing the transaction.
+Extract the transaction details into a JSON object with strictly these keys:
+- amount (float)
+- type (string): 'expense' or 'income'
+- category (string): choose from [shopping, transport, entertainment, health, utilities, food, salary, gift, investment, other]
+- date (string): YYYY-MM-DD (default to {TODAY})
+- payment_mode (string): e.g. cash, UPI, card (default 'cash')
+- description (string): brief noun phrase describing the item/merchant
 
-Respond ONLY with a valid JSON object. Do not include any explanations or markdown.
+Respond ONLY with valid JSON. No explanations or markdown.
 """
 
 
@@ -41,9 +30,9 @@ def extract_expense(text: str) -> Expense:
     """Call OpenAI to extract structured expense data from natural language."""
     request_id = str(uuid.uuid4())
     t0 = time.time()
-    response = client.chat.completions.create(
+    response = client.beta.chat.completions.parse(
         model=OPENAI_MODEL,
-        response_format={"type": "json_object"},
+        response_format=Expense,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": text},
@@ -56,30 +45,21 @@ def extract_expense(text: str) -> Expense:
         request_id, OPENAI_MODEL, duration_ms
     )
 
-    raw = response.choices[0].message.content
-    data = json.loads(raw)
-    return Expense(**data)
+    return response.choices[0].message.parsed
 
 
-RECEIPT_SYSTEM_PROMPT = f"""You are an expert OCR receipt parsing assistant.
-Today's date is {TODAY}.
+RECEIPT_SYSTEM_PROMPT = f"""You are an OCR receipt parsing assistant. Today is {TODAY}.
 
-You are given raw text from an OCR engine. Analyze it and extract transaction details into a JSON object:
-- amount (float): the total monetary amount spent (look for "Total", "Grand Total"). If unclear, look for the largest number near the bottom.
-- type: ALWAYS 'expense'.
-- category (string): choose the MOST relevant category based on items or merchant from this list:
-    - food: restaurants, cafes, groceries, bakeries, bars.
-    - shopping: clothing, electronics, department stores, pharmacy (if non-medical), home goods.
-    - transport: fuel/gas stations, taxi receipts, parking.
-    - entertainment: cinema tickets, concert passes, hobby shops.
-    - health: hospitals, clinics, specialized medical labs.
-    - utilities: bills for electricity, water, or mobile service providers.
-    - other: catch-all for miscellaneous receipts.
-- date (string): the transaction date in YYYY-MM-DD format. If not found, use {TODAY}.
-- payment_mode (string): e.g., cash, UPI, credit card, debit card. Default to "cash" if unclear.
-- description (string): the merchant name or a brief summary of the primary items (e.g., "Starbucks Coffee").
+Extract transaction details from the raw OCR text into a JSON object with strictly these keys:
+- amount (float): total spent. Look for "Total" or the largest number near the bottom.
+- type (string): ALWAYS 'expense'
+- category (string): choose from [food, shopping, transport, entertainment, health, utilities, other]
+- date (string): YYYY-MM-DD (default to {TODAY})
+- payment_mode (string): e.g. cash, UPI, card (default 'cash')
+- description (string): merchant name or brief summary
 
-Respond ONLY with a valid JSON object. If the text is unreadable or non-financial, return amount 0.0 and description "Failed to parse receipt".
+If unreadable, return amount 0.0 and description "Failed to parse receipt".
+Respond ONLY with valid JSON. No explanations or markdown.
 """
 
 
@@ -87,9 +67,9 @@ def extract_expense_from_receipt(ocr_text: str) -> Expense:
     """Call OpenAI to extract structured expense data from messy OCR strings."""
     request_id = str(uuid.uuid4())
     t0 = time.time()
-    response = client.chat.completions.create(
+    response = client.beta.chat.completions.parse(
         model=OPENAI_MODEL,
-        response_format={"type": "json_object"},
+        response_format=Expense,
         messages=[
             {"role": "system", "content": RECEIPT_SYSTEM_PROMPT},
             {"role": "user", "content": ocr_text},
@@ -102,6 +82,4 @@ def extract_expense_from_receipt(ocr_text: str) -> Expense:
         request_id, OPENAI_MODEL, duration_ms
     )
 
-    raw = response.choices[0].message.content
-    data = json.loads(raw)
-    return Expense(**data)
+    return response.choices[0].message.parsed

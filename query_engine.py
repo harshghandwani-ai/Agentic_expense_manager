@@ -10,8 +10,12 @@ Pipeline:
 import json
 from datetime import date
 from openai import OpenAI
+from pydantic import BaseModel, Field
 from db import run_query
 from config import OPENAI_API_KEY, OPENAI_MODEL
+
+class SQLResponse(BaseModel):
+    sql: str = Field(description="The raw SQLite SELECT statement without any markdown fences")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -80,7 +84,7 @@ Rules:
 
 # ─── Pipeline steps ───────────────────────────────────────────────────────────
 
-def _generate_sql(query_text: str, user_id: int = 0) -> str:
+def _generate_sql(query_text: str, history: list[dict] = None, user_id: int = 0) -> str:
     """Step 1 — ask the LLM to produce a SELECT statement scoped to user_id."""
     system_prompt = SQL_SYSTEM_PROMPT_TEMPLATE.format(
         today=TODAY,
@@ -88,15 +92,19 @@ def _generate_sql(query_text: str, user_id: int = 0) -> str:
         user_id=user_id,
         month=TODAY[:7],
     )
-    response = client.chat.completions.create(
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": query_text})
+
+    response = client.beta.chat.completions.parse(
         model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query_text},
-        ],
+        response_format=SQLResponse,
+        messages=messages,
         temperature=0,
     )
-    return response.choices[0].message.content.strip()
+    return response.choices[0].message.parsed.sql
 
 
 def _validate_sql(sql: str) -> str:
@@ -123,34 +131,42 @@ def _format_result(rows: list[dict]) -> str:
 
 # ─── Public dispatcher ────────────────────────────────────────────────────────
 
-def execute_read_expenses(query_text: str, user_id: int = 0) -> str:
+def execute_read_expenses(query_text: str, history: list[dict] = None, user_id: int = 0) -> str:
     """
     Full Text-to-SQL pipeline scoped to a specific user.
     Returns a JSON string that is sent back to the LLM as the tool result.
     """
-    sql = _generate_sql(query_text, user_id=user_id)
+    sql = _generate_sql(query_text, history=history, user_id=user_id)
     sql = _validate_sql(sql)
     rows = _execute_sql(sql)
     return _format_result(rows)
 
 
 
-def summarize_results(user_input: str, tool_result: str) -> str:
+def summarize_results(user_input: str, tool_result: str, history: list[dict] = None):
     """
     Takes the raw JSON rows string from execute_read_expenses and the original user query,
     and returns a conversational natural-language answer.
     """
     system_prompt = (
-        "You are a helpful personal finance assistant. "
-        "Answer the user's question based strictly on the provided database results. "
-        "Amount is in ₹"
+        "You are a helpful, extremely engaging financial assistant. "
+        "Answer the user's question based strictly on the provided database results (amount is in ₹). "
+        "IMPORTANT FORMATTING RULES:\n"
+        "1. Use Markdown (bold, italics) to highlight important figures, totals, or categories.\n"
+        "2. If listing multiple transactions, periods, or comparative data points, ALWAYS format them as a neat Markdown table.\n"
+        "3. Sprinkle 1-2 relevant emojis (like 🍕, 🚗, 💰) per response to make it feel alive without overdoing it.\n"
+        "Do not expose the raw JSON or IDs, format it naturally."
     )
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": f"User question: {user_input}\n\nDatabase results:\n{tool_result}"})
+
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"User question: {user_input}\n\nDatabase results:\n{tool_result}"}
-        ],
+        messages=messages,
         temperature=0.3,
+        stream=True,
     )
-    return response.choices[0].message.content.strip()
+    return response

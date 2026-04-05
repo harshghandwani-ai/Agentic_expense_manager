@@ -1,0 +1,40 @@
+id,amount,type,category,date,payment_mode,description,created_at
+57,500.0,expense,food,2026-04-05,cash,pizza,2026-04-05T08:45:09.200012+00:00
+56,850.0,expense,other,2026-04-05,UPI,Payment to Jyoti Verma,2026-04-05T08:05:37.229215+00:00
+55,5000.0,expense,food,2026-04-05,cash,pizza,2026-04-05T07:56:49.927526+00:00
+54,100.0,expense,gift,2026-04-05,cash,Donation to local animal rescue,2026-04-05T07:53:34.439012+00:00
+53,200.0,expense,other,2026-04-05,cash,ATM withdrawal,2026-04-05T07:53:16.400227+00:00
+52,35.0,expense,other,2026-04-05,credit card,Credit card late fee,2026-04-05T07:52:50.497943+00:00
+51,50.0,expense,gift,2026-04-05,cash,Xbox gift card,2026-04-05T07:52:30.956053+00:00
+50,500.0,income,salary,2026-04-05,bank transfer,Reimbursement for travel expenses,2026-04-05T07:52:02.550159+00:00
+49,40.0,expense,health,2026-04-05,cash,Aspirin and vitamins,2026-04-05T07:51:41.000318+00:00
+48,25.0,expense,entertainment,2026-04-05,cash,popcorn and soda,2026-04-05T07:51:26.265421+00:00
+47,25.0,expense,entertainment,2026-04-05,cash,popcorn and soda at the cinema,2026-04-05T07:51:09.775883+00:00
+46,50000.0,income,salary,2026-04-04,bank transfer,Monthly salary,2026-04-04T17:47:07.333039+00:00
+45,850.0,expense,other,2026-04-04,UPI,Payment to Jyoti Verma,2026-04-04T17:45:26.069866+00:00
+44,200.0,expense,shopping,2026-04-04,cash,Shampoo bottle,2026-04-04T17:45:09.274633+00:00
+43,546.0,expense,other,2026-04-04,UPI,payment to cheq4,2026-04-04T17:44:08.516849+00:00
+42,500.0,expense,other,2026-04-04,cash,sweets,2026-04-04T17:40:25.195612+00:00
+41,546.0,expense,other,2026-04-04,UPI,payment to cheq4,2026-04-04T14:19:55.007768+00:00
+40,850.0,expense,other,2026-04-04,UPI,Payment to Jyoti Verma,2026-04-04T14:14:56.355321+00:00
+39,10000.0,expense,investment,2026-04-04,bank transfer,Mutual Funds SIP,2026-04-04T07:57:18.099842+00:00
+38,600.0,expense,health,2026-04-04,cash,eye drops from Apollo Pharmacy,2026-04-04T07:57:05.881899+00:00
+37,90000.0,income,salary,2026-04-04,bank,Salary,2026-04-04T07:51:23.169792+00:00
+36,10000.0,expense,food,2026-04-04,UPI,Medicine from Apollo,2026-04-04T07:50:45.167951+00:00
+35,10000.0,expense,food,2026-04-04,UPI,Medicine from Apollo,2026-04-04T07:50:31.816033+00:00
+34,10000.0,expense,food,2026-04-04,UPI,Medicine from Apollo,2026-04-04T07:50:12.509116+00:00
+33,10000.0,expense,food,2026-04-04,UPI,Medicine from Apollo,2026-04-04T06:47:06.102527+00:00
+32,10000.0,expense,food,2026-04-04,bank transfer,Medicine from Apollo,2026-04-04T05:47:28.408366+00:00
+31,10000.0,expense,health,2026-04-04,UPI,Medicine from Apollo,2026-04-04T05:46:09.004321+00:00
+30,5000.0,expense,health,2026-04-04,UPI,supplements from Apollo,2026-04-04T05:44:51.285315+00:00
+29,5000.0,expense,food,2026-04-04,cash,clothes purchase,2026-04-04T05:35:55.428914+00:00
+28,200000.0,income,salary,2026-04-03,bank transfer,Received additional income,2026-04-03T16:16:41.298805+00:00
+27,100000.0,income,salary,2026-04-03,bank transfer,monthly salary,2026-04-03T16:16:19.294353+00:00
+26,40000.0,income,salary,2026-04-03,bank transfer,salary income,2026-04-03T08:52:04.243574+00:00
+24,500.0,expense,food,2026-04-03,bank transfer,Earning logged,2026-04-03T07:53:43.203499+00:00
+23,90000.0,expense,food,2026-04-03,bank transfer,Salary credited,2026-04-03T07:53:20.771119+00:00
+22,90000.0,expense,food,2026-04-03,bank transfer,Salary received,2026-04-03T07:52:17.585508+00:00
+13,850.0,expense,health,2026-03-29,UPI,payment to Jyoti Verma,2026-03-29T13:18:07.461715+00:00
+11,500.0,expense,shopping,2026-03-29,cash,shoes,2026-03-29T12:19:16.316424+00:00
+10,500.0,expense,transport,2026-03-29,cash,commute,2026-03-29T12:18:19.482641+00:00
+9,546.0,expense,other,2026-03-28,UPI,payment to cheq4,2026-03-29T12:17:11.036064+00:00

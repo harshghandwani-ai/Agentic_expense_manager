@@ -433,10 +433,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── New Chat ───────────────────────────────────────────────────────────
-    newChatBtn?.addEventListener('click', () => {
+    newChatBtn?.addEventListener('click', async () => {
         chatMessages.innerHTML = '';
         chatMessages.appendChild(welcomeContainer);
         welcomeContainer.style.display = 'block';
+        try {
+            await authFetch('/api/chat', { method: 'DELETE' });
+        } catch (e) {
+            console.error('Failure clearing backend chat history', e);
+        }
     });
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -453,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (sender === 'ai') {
             messageDiv.classList.add('ai-message');
             avatarDiv.innerHTML = '<i class="fa-solid fa-wallet"></i>';
-            contentDiv.innerHTML = '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
+            contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
         } else {
             messageDiv.classList.add('ai-message');
             avatarDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:#ff5555"></i>';
@@ -766,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const data = JSON.parse(jsonStr);
 
                         if (data.type === 'intent') {
-                            if (data.value === 'chat') {
+                            if (data.value === 'chat' || data.value === 'query') {
                                 aiContentDiv = appendMessage('ai', '');
                             }
                         } else if (data.type === 'chunk') {
@@ -777,11 +782,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             if (!aiContentDiv) aiContentDiv = appendMessage('ai', '');
                             fullAiText += data.value;
-                            aiContentDiv.innerHTML = '<p>' + escapeHtml(fullAiText).replace(/\n/g, '<br>') + '</p>';
+                            aiContentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullAiText) : '<p>' + escapeHtml(fullAiText).replace(/\n/g, '<br>') + '</p>';
                             scrollToBottom();
                         } else if (data.type === 'log') {
                             renderConfirmationCard(data.expense);
-                        } else if (data.type === 'query' || data.type === 'budget') {
+                        } else if (data.type === 'budget') {
                             appendMessage('ai', data.answer);
                         } else if (data.type === 'error') {
                             appendMessage('system', data.message);

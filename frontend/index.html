@@ -142,7 +142,8 @@
                 <div class="chat-input-wrapper">
                     <div class="chat-input-container">
                         <form id="chat-form" class="chat-form">
-                            <button type="button" class="action-btn" id="attach-btn" title="Attach"><i class="fa-solid fa-plus"></i></button>
+                            <button type="button" class="action-btn" id="new-chat-btn" title="Clear Context / New Chat"><i class="fa-solid fa-broom"></i></button>
+                            <button type="button" class="action-btn" id="attach-btn" title="Attach"><i class="fa-solid fa-paperclip"></i></button>
                             <input type="file" id="image-upload" accept="image/*" style="display: none;">
                             <textarea id="message-input" placeholder="Message PennyWise AI..." rows="1" autofocus></textarea>
                             <button type="button" class="action-btn mic-btn" id="mic-btn" title="Voice Input">
@@ -254,6 +255,7 @@
         </div>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
